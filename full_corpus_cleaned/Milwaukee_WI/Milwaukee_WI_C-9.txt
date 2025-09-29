@@ -1,1 +1,0 @@
-#redirect milwaukee {{redirect category shell|{{r from city and state}}{{r from move}}{{r from unnecessary disambiguation}}}}
