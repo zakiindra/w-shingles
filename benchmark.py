@@ -7,13 +7,15 @@ from multiprocessing import Pool, cpu_count
 import re
 
 CORPUS_DIR = "full_corpus_cleaned"
-RESULTS_DIR = "results"
+RESULTS_DIR = "logs"
+
 LAMBDA_VALS = [8, 16, 32, 64, -1]
 W_VALS = [25, 50]
 BATCH_SIZE = 10
 # Set the number of workers, leaving some cores for system overhead
 NUM_WORKERS = 60
 
+os.mkdir(RESULTS_DIR, exist_ok=True)
 # Logs
 CITY_TIMING_LOG = os.path.join(RESULTS_DIR, "city_timings.log")
 EXPLICIT_TIMING_LOG = os.path.join(RESULTS_DIR, "shingles_and_lambda_timing.log")
