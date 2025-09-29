@@ -2,10 +2,12 @@ import os
 import re
 import zipfile
 import shutil
+import concurrent.futures
+from tqdm import tqdm # For a progress bar
 
 # --- Configuration ---
 # Set this to False only after you have reviewed the dry run output for Step 3.
-DRY_RUN_RENAMING = True
+DRY_RUN_RENAMING = False
 
 # --- Paths ---
 SOURCE_ZIPS_DIR = "article_dump"
@@ -80,7 +82,7 @@ def step_2_extract_zips(zip_dir, output_dir):
                 with zipfile.ZipFile(zip_path, 'r') as zf:
                     zf.extractall(city_dest_path)
             except Exception as e:
-                print(f"    -> ERROR extracting: {e}")
+                print(f"     -> ERROR extracting: {e}")
                 continue
 
             macosx_path = os.path.join(city_dest_path, "__MACOSX")
@@ -119,34 +121,33 @@ def step_3_clean_and_standardize_files(corpus_dir):
     else:
         print("--- RUNNING IN LIVE MODE. FILES WILL BE MODIFIED. ---")
 
-    # Pass 1: Standardize directory names (e.g., 'Chicago_ IL' -> 'Chicago_IL')
+    # Pass 1: Standardize directory names (e.g., 'City_ STATECODE' -> 'City_STATECODE')
     print("\n  -> Pass 1: Standardizing directory names...")
     dirs_to_process = [d.name for d in os.scandir(corpus_dir) if d.is_dir()]
     for dir_name in dirs_to_process:
-        # A more direct fix for names like 'Chicago_ IL'
         new_dir_name = dir_name.replace(' _', '_')
-        if " " in new_dir_name: # Also catches 'El Paso_TX' -> 'ElPaso_TX' if desired
-             new_dir_name = new_dir_name.replace(' ', '')
+        if " " in new_dir_name:
+              new_dir_name = new_dir_name.replace(' ', '')
 
         if dir_name != new_dir_name:
-            print(f"    -> Rename Dir: '{dir_name}' >> '{new_dir_name}'")
+            print(f"     -> Rename Dir: '{dir_name}' >> '{new_dir_name}'")
             if not DRY_RUN_RENAMING:
                 try:
                     os.rename(os.path.join(corpus_dir, dir_name), os.path.join(corpus_dir, new_dir_name))
                 except Exception as e:
-                    print(f"      ERROR: Could not rename directory. {e}")
+                    print(f"       ERROR: Could not rename directory. {e}")
     
-    # Pass 2: Flatten any nested directories (like Chicago_IL/Chicago)
+    # Pass 2: Flatten any nested directories
     print("\n  -> Pass 2: Flattening nested directories...")
     dirs_to_process = [d.name for d in os.scandir(corpus_dir) if d.is_dir()]
     for dir_name in dirs_to_process:
         dir_path = os.path.join(corpus_dir, dir_name)
         items_in_dir = os.listdir(dir_path)
         
-        # This logic robustly finds any directory with a single subdirectory inside
+        # This logic finds any directory with a single subdirectory inside
         if len(items_in_dir) == 1 and os.path.isdir(os.path.join(dir_path, items_in_dir[0])):
             nested_dir_path = os.path.join(dir_path, items_in_dir[0])
-            print(f"    -> Flattening: Moving files from '{nested_dir_path}'")
+            print(f"     -> Flattening: Moving files from '{nested_dir_path}'")
             if not DRY_RUN_RENAMING:
                 for item_name in os.listdir(nested_dir_path):
                     shutil.move(os.path.join(nested_dir_path, item_name), dir_path)
@@ -161,12 +162,12 @@ def step_3_clean_and_standardize_files(corpus_dir):
             if not os.path.isfile(os.path.join(dir_path, old_filename)): continue # Skip directories
             new_filename = get_standardized_name(old_filename, dir_name)
             if old_filename != new_filename:
-                print(f"    -> Rename File: '{old_filename}' >> '{new_filename}' in '{dir_name}'")
+                print(f"     -> Rename File: '{old_filename}' >> '{new_filename}' in '{dir_name}'")
                 if not DRY_RUN_RENAMING:
                     try:
                         os.rename(os.path.join(dir_path, old_filename), os.path.join(dir_path, new_filename))
                     except Exception as e:
-                        print(f"      ERROR: Could not rename file. {e}")
+                        print(f"       ERROR: Could not rename file. {e}")
 
 
 def log_error(log_file, item_name, reason):
@@ -214,39 +215,63 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
+def clean_single_file_task(file_path):
+    """Worker function to clean one file. Reads, cleans, and overwrites."""
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            raw_text = f.read()
+
+        cleaned_text = clean_text(raw_text)
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(cleaned_text)
+        return None
+    except Exception as e:
+        return f"Error cleaning {file_path}: {e}"
+
 def step_4_clean_file_contents(corpus_dir):
     """
-    Cleans the text inside all .txt files in the corpus directories.
+    Cleans the text inside all .txt files in the corpus directories using a thread pool.
     """
-    print("\n--- Step 4: Cleaning Text File Contents ---")
+    print("\n--- Step 4: Cleaning Text File Contents (using 50 workers) ---")
+    
+    files_to_process = []
+    for dir_entry in os.scandir(corpus_dir):
+        if dir_entry.is_dir():
+            for file_name in os.listdir(dir_entry.path):
+                if file_name.endswith(".txt"):
+                    files_to_process.append(os.path.join(dir_entry.path, file_name))
+    
+    if not files_to_process:
+        print("  -> No .txt files found to clean.")
+        return
 
-    dirs_to_process = [d.name for d in os.scandir(corpus_dir) if d.is_dir()]
-    for dir_name in dirs_to_process:
-        dir_path = os.path.join(corpus_dir, dir_name)
-        for file_name in os.listdir(dir_path):
-            file_path = os.path.join(dir_path, file_name)
-            if not os.path.isfile(file_path) or not file_name.endswith(".txt"):
-                continue
+    print(f"  -> Found {len(files_to_process)} files to clean. Starting processing...")
 
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                raw_text = f.read()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        results = list(tqdm(executor.map(clean_single_file_task, files_to_process), total=len(files_to_process)))
 
-            cleaned_text = clean_text(raw_text)
-
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(cleaned_text)
-
-            print(f"    -> Cleaned text in: {file_path}")
-
+    errors = [res for res in results if res is not None]
+    if errors:
+        print(f"\n  -> Completed with {len(errors)} errors:")
+        for error_msg in errors:
+            print(f"    - {error_msg}")
+    else:
+        print("\n  -> Successfully cleaned all files.")
 
 def main():
     """Runs the full data preparation pipeline."""
     print("===== STARTING DATA PREPARATION PIPELINE =====")
     
+    if os.path.exists(EXTRACTED_CORPUS_DIR):
+        print(f"Found existing directory '{EXTRACTED_CORPUS_DIR}'. Deleting it for a clean run...")
+        shutil.rmtree(EXTRACTED_CORPUS_DIR)
+
     if step_1_validate_zips(SOURCE_ZIPS_DIR):
         step_2_extract_zips(SOURCE_ZIPS_DIR, EXTRACTED_CORPUS_DIR)
         step_3_clean_and_standardize_files(EXTRACTED_CORPUS_DIR)
-        step_4_clean_file_contents(EXTRACTED_CORPUS_DIR)  # <-- NEW CALL
+        if DRY_RUN_RENAMING == False: # no dry run means all non txt files have been converted to .txt files and are ready for cleaning.
+            step_4_clean_file_contents(EXTRACTED_CORPUS_DIR)
     
     print("\n===== DATA PREPARATION PIPELINE COMPLETE =====")
     if DRY_RUN_RENAMING:
