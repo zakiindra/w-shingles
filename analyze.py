@@ -10,11 +10,11 @@ W_L_TIMING = os.path.join(LOG_DIR, 'shingles_and_lambda_timing.log' )
 city_data = pd.read_csv(CITY_TIMING)
 w_l_data = pd.read_csv(W_L_TIMING)
 
-city_data.to_csv("results/city_timings.csv", sep=',')
-w_l_data.to_csv("results/shingles_and_lambda_timing.csv", sep=",")
+city_data.to_csv("logs/city_timings.csv", sep=',')
+w_l_data.to_csv("logs/shingles_and_lambda_timing.csv", sep=",")
 
-city_df = pd.read_csv("results/city_timings.csv")
-w_l_df = pd.read_csv("results/shingles_and_lambda_timing.csv")
+city_df = pd.read_csv("logs/city_timings.csv")
+w_l_df = pd.read_csv("logs/shingles_and_lambda_timing.csv")
 
 # Aggregate sum of total times over all cities for each (w, λ)
 agg = w_l_df.groupby(["w", "lambda"])["mean_total_time"].sum().reset_index()
@@ -43,5 +43,5 @@ plt.grid(axis='y', linestyle='--', alpha=0.5)
 plt.tight_layout()
 
 # Save and show
-plt.savefig("results/shingle_timing_barplot.png", dpi=150)
+plt.savefig("logs/shingle_timing_barplot.png", dpi=150)
 plt.show()
