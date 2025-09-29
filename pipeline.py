@@ -174,6 +174,71 @@ def log_error(log_file, item_name, reason):
         f.write(f"{item_name}: {reason}\n")
 
 
+def clean_text(text: str) -> str:
+    # hack
+    text = text.replace("( Template:Lang-tfn )", "")
+    text = text.replace("[T]", "T")
+
+    # lowercase
+    text = text.lower()
+
+    # normalize newline
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = text.replace("\n", " ")
+
+    # replace tabs with space
+    text = text.replace("\t", " ")
+
+    # replace brackets and slashes [] () \/ with space
+    bracket_expr = re.compile(r"[\[\]()\\/]")
+    text = bracket_expr.sub(" ", text)
+
+    # remove colon, semicolon, comma, quote " '
+    quote_expr = re.compile(r"[\"\':;,]")
+    text = quote_expr.sub("", text)
+
+    # remove dots, but keep it in fractions and version number
+    dot_expr = re.compile(r"\.(?!\d)")
+    text = dot_expr.sub("", text)
+
+    # remove NBSP
+    text = text.replace("\u00A0", "")
+
+    # replace newlines with space (again just in case)
+    text = text.replace("\n", " ")
+
+    # trim extra spaces
+    space_expr = re.compile(r" {2,}")
+    text = space_expr.sub(" ", text)
+
+    return text.strip()
+
+
+def step_4_clean_file_contents(corpus_dir):
+    """
+    Cleans the text inside all .txt files in the corpus directories.
+    """
+    print("\n--- Step 4: Cleaning Text File Contents ---")
+
+    dirs_to_process = [d.name for d in os.scandir(corpus_dir) if d.is_dir()]
+    for dir_name in dirs_to_process:
+        dir_path = os.path.join(corpus_dir, dir_name)
+        for file_name in os.listdir(dir_path):
+            file_path = os.path.join(dir_path, file_name)
+            if not os.path.isfile(file_path) or not file_name.endswith(".txt"):
+                continue
+
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                raw_text = f.read()
+
+            cleaned_text = clean_text(raw_text)
+
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(cleaned_text)
+
+            print(f"    -> Cleaned text in: {file_path}")
+
+
 def main():
     """Runs the full data preparation pipeline."""
     print("===== STARTING DATA PREPARATION PIPELINE =====")
@@ -181,6 +246,7 @@ def main():
     if step_1_validate_zips(SOURCE_ZIPS_DIR):
         step_2_extract_zips(SOURCE_ZIPS_DIR, EXTRACTED_CORPUS_DIR)
         step_3_clean_and_standardize_files(EXTRACTED_CORPUS_DIR)
+        step_4_clean_file_contents(EXTRACTED_CORPUS_DIR)  # <-- NEW CALL
     
     print("\n===== DATA PREPARATION PIPELINE COMPLETE =====")
     if DRY_RUN_RENAMING:
