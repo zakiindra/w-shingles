@@ -25,10 +25,8 @@ def preprocess_text(text: str) -> str:
 
     # normalize newline
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text.replace("\n", " ")
-
-    # replace tabs with space
-    text.replace("\t", " ")
+    text = text.replace("\n", " ")
+    text = text.replace("\t", " ")
 
     # replace brackets and slashes [] () \/ with space
     bracket_expr = re.compile(r"[\[\]()\\/]")

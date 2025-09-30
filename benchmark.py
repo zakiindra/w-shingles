@@ -18,8 +18,8 @@ NUM_WORKERS = 60
 os.mkdir(RESULTS_DIR, exist_ok=True)
 # Logs
 CITY_TIMING_LOG = os.path.join(RESULTS_DIR, "city_timings.log")
-EXPLICIT_TIMING_LOG = os.path.join(RESULTS_DIR, "shingles_and_lambda_timing.log")
-SKIPPED_LOG_FILE = os.path.join(RESULTS_DIR, "skipped_cities.log")
+SHINGLES_AND_LAMBDA_LOG = os.path.join(RESULTS_DIR, "shingles_and_lambda_timing.log")
+SKIPPED_LOG_FILE = os.path.join(RESULTS_DIR, "skipped_cities_benchmark.log")
 
 def calculate_similarity(first: set, second: set) -> float:
     if not first and not second:
@@ -188,7 +188,7 @@ def main():
         for city in sorted(city_total_timings.keys()):
             f.write(f"{city},{city_total_timings[city]:.4f},{similarity_timings[city]:.4f}\n")
 
-    with open(EXPLICIT_TIMING_LOG, 'w', encoding='utf-8') as f:
+    with open(SHINGLES_AND_LAMBDA_LOG, 'w', encoding='utf-8') as f:
         f.write("city_name,w,lambda,mean_total_time,std_total_time,mean_similarity_time,std_similarity_time\n")
         for row in explicit_results:
             lam_str = 'inf' if row[2] == -1 else row[2]
@@ -200,7 +200,7 @@ def main():
             for city in sorted(skipped_cities):
                 f.write(city + "\n")
 
-    print(f"Logs saved:\n- {CITY_TIMING_LOG}\n- {EXPLICIT_TIMING_LOG}")
+    print(f"Logs saved:\n- {CITY_TIMING_LOG}\n- {SHINGLES_AND_LAMBDA_LOG}")
     if skipped_cities:
         print(f"- {SKIPPED_LOG_FILE}")
 
