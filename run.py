@@ -69,10 +69,15 @@ def plot_combined_similarity(results: dict, city: str, w: int, output_dir: str):
         versions = sorted(sim_data.keys(), key=lambda v: int(v.split('-')[-1]) if '-' in v else -1)
         sim_values = [sim_data[v] for v in versions]
         x_labels = [v.replace('C-', '') for v in versions]
-        plt.plot(x_labels, sim_values, marker='o', linestyle='-', label=f'λ = {lam_label}')
+        plt.plot(x_labels, sim_values, linestyle='-', label=f'λ = {lam_label}')
     plt.title(f'Similarity Evolution for {city} (w={w})')
-    plt.xlabel("Version (T - k)"); plt.ylabel("Jaccard Similarity with Current Version (T)")
-    plt.grid(True); plt.legend(); plt.xticks(rotation=45); plt.tight_layout()
+    plt.xlabel("Version (T - k)")
+    plt.ylabel("Jaccard Similarity with Current Version (T)")
+    plt.ylim(0.0, 1.1)
+    plt.grid(True)
+    plt.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, f"similarity_{city}_w{w}.png")); plt.close()
 
 # --- NEW WORKER FUNCTION ---
