@@ -15,7 +15,7 @@ BATCH_SIZE = 10
 # Set the number of workers, leaving some cores for system overhead
 NUM_WORKERS = 60
 
-os.mkdir(RESULTS_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
 # Logs
 CITY_TIMING_LOG = os.path.join(RESULTS_DIR, "city_timings.log")
 SHINGLES_AND_LAMBDA_LOG = os.path.join(RESULTS_DIR, "shingles_and_lambda_timing.log")
